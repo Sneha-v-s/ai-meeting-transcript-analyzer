@@ -1,0 +1,16 @@
+fastapi==0.115.0
+uvicorn==0.32.0
+python-multipart==0.0.12
+openai-whisper==20231117
+python-dotenv
+speechbrain
+scikit-learn
+pyannote.audio
+setuptools
+imageio-ffmpeg
+pydantic==1.10.17
+torch
+torchaudio
+jinja2
+numpy
+transformers

@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Meeting Transcript Analyzer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 900px; margin: 0 auto; padding: 20px; background: #f8f9fa;
+        }
+        .header { text-align: center; margin-bottom: 40px; }
+
+        .upload-area {
+            border: 3px dashed #007bff; padding: 60px 20px;
+            border-radius: 15px; text-align: center; background: white;
+            box-shadow: 0 4px 20px rgba(0,123,255,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #0056b3; background: #f0f8ff;
+        }
+        .upload-area.has-file {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .upload-area input[type=file] { display: none; }
+
+        .btn {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white; padding: 10px 40px; border: none;
+            border-radius: 50px; font-size: 18px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,123,255,0.3);
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #1e7e34);
+            box-shadow: 0 4px 15px rgba(40,167,69,0.3);
+        }
+
+        .file-info {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0 3px 0;
+            display: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .file-info.show { display: block; }
+
+        .fileinfo {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0 22px 0;
+            display: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .fileinfo.show { display: block; }
+
+        .progress-container {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin: 32.2px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .progress-container.show { display: block; }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .status-message {
+            text-align: center;
+            font-size: 16px;
+            color: #495057;
+            margin-top: 10px;
+        }
+        .status-message strong { color: #007bff; }
+
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        /* Feature tiles (like nav) */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 27px 0;
+            z-index: 1000;
+        }
+        .feature {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, border 0.2s;
+            border: 2px solid transparent;
+            z-index:1000;
+        }
+        .feature:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        .feature.active {
+            border-color: #007bff;
+        }
+
+        /* Meeting Analysis meta (under upload) */
+        #analysisInfo {
+            display:none;
+            margin-top:20px;
+            padding:20px;
+            background:white;
+            border-radius:10px;
+            box-shadow:0 2px 10px rgba(0,0,0,0.1);
+        }
+        #analysisInfo p { margin-top:4px; }
+        #transcriptStatus {
+            margin-top:10px;
+            color:#16a34a;
+            font-weight:500;
+        }
+
+        /* Full-screen overlay modal */
+        .modal {
+            display:none;
+            position:fixed;
+            top:0; left:0;
+            width:100%; height:100%;
+            background:rgba(0, 0, 0, 0.185);
+            z-index:999;
+        }
+
+        /* Modal content: fixed box with header + body */
+        .modal-content {
+            background:white;
+            max-width:900px;
+            width:90%;
+            margin:8.5% auto 4% auto;
+            padding:20px 24px;
+            border-radius:10px;
+            position:relative;
+            max-height:80vh;
+            box-shadow:0 4px 20px rgba(0,0,0,0.2);
+            display:flex;
+            flex-direction:column;
+        }
+
+        .modal-header {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            padding-bottom:10px;
+            border-bottom:1px solid #e5e7eb;
+        }
+
+        #modalTitle {
+            margin:0;
+            font-size:1.1rem;
+            font-weight:600;
+        }
+
+        .modal-header-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Icon-only buttons */
+        .icon-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover svg,
+        .icon-btn:hover .icon-close {
+            opacity: 0.7;
+        }
+
+        .icon-close {
+            font-size: 25px;
+            line-height: 1;
+        }
+
+        .modal-body {
+            margin-top:10px;
+            max-height:calc(80vh - 70px);
+            overflow-y:auto;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .modal-body::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Your iconify button (optional tweak to remove default button look if needed) */
+        .iui-grid-icon-content {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎤 AI Meeting Transcript Analyzer</h1>
+        <p>Upload audio/video → Get transcript, speakers, summary & tasks</p>
+    </div>
+
+    <!-- Feature tiles (act as switches) -->
+    <div class="features">
+        <div class="feature" id="featureTranscript">📝 Full Transcript</div>
+        <div class="feature" id="featureSpeakers">👥 Speaker Detection</div>
+        <div class="feature" id="featureActions">📋 Action Items</div>
+        <div class="feature" id="featureSummary">💡 Smart Summary</div>
+    </div>
+
+    <!-- Upload area -->
+    <div class="upload-area" id="uploadArea">
+        <h3 id="uploadTitle">Drop your meeting file here or click to browse</h3>
+        <p>Supports MP3, WAV, M4A, MP4, MOV</p>
+        <input type="file" id="fileInput" accept="audio/*,video/*">
+        <br><br>
+        <button class="btn" onclick="document.getElementById('fileInput').click()">
+            📁 Choose File
+        </button>
+    </div>
+
+    <!-- File selected info -->
+    <div class="file-info" id="fileInfo">
+        <h3>✅ File Selected</h3>
+        <p><strong>Name:</strong> <span id="fileName"></span></p>
+        <p><strong>Size:</strong> <span id="fileSize"></span></p>
+        <p><strong>Type:</strong> <span id="fileType"></span></p>
+
+        <button class="btn btn-success" id="analyzeBtn" onclick="analyzeFile()">
+            🚀 Analyze Meeting
+        </button>
+        <button class="btn" onclick="resetUpload()">
+            🔄 Choose Different File
+        </button>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-container" id="progressContainer">
+        <h3>⚙️ Processing Your Meeting</h3>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill">0%</div>
+        </div>
+        <div class="status-message" id="statusMessage">
+            <strong>Uploading file...</strong>
+        </div>
+    </div>
+
+    <div id="result"></div>
+
+    <!-- Meeting Analysis meta -->
+    <div class="fileinfo" id="analysisInfo">
+        <h2>📋 Meeting Analysis</h2>
+        <p><strong>Meeting ID:</strong> <span id="analysisMeetingId"></span></p>
+        <p><strong>File:</strong> <span id="analysisFileName"></span></p>
+        <p><strong>Status:</strong> <span id="analysisStatus"></span></p>
+        <p id="transcriptStatus">Transcript ready</p>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="analysisModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTitle">Full Transcript</h3>
+          <div class="modal-header-buttons">
+            <!-- Copy button using your iconify markup -->
+            <button class="iui-grid-icon-content" id="copyModalContent" title="Copy" draggable="true">
+              <iconify-icon icon="lucide:copy" width="1em" height="1em">
+                <template shadowrootmode="open">
+                  <style data-style="data-style">
+                    :host{display:inline-block;vertical-align:0}
+                    span,svg{display:block;margin:auto}
+                  </style>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+                    <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+                      <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+                      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+                    </g>
+                  </svg>
+                </template>
+              </iconify-icon>
+            </button>
+
+            <!-- close X -->
+            <button class="icon-btn" id="closeAnalysisModal" title="Close">
+              <span class="icon-close">&times;</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-body" id="modalBody">
+          <!-- Transcript section -->
+          <div id="sectionFull">
+            <pre id="fullTranscript" style="white-space:pre-wrap; font-family:inherit;"></pre>
+          </div>
+
+          <!-- Speaker Detection section -->
+          <div id="sectionSpeakers" style="display:none;">
+            <div id="speakersContent"></div>
+          </div>
+
+          <!-- Action Items section -->
+          <div id="sectionActions" style="display:none;">
+            <div id="actionsContent"></div>
+          </div>
+
+          <!-- Summary section -->
+          <div id="sectionSummary" style="display:none;">
+            <div id="summaryContent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let currentMeetingId = localStorage.getItem('meetingId') || null;
+        let currentFileName = localStorage.getItem('fileName') || null;
+        
+        // Restore UI if meeting exists
+        window.addEventListener('load', () => {
+            if (currentMeetingId && currentFileName) {
+                analysisInfo.style.display = 'block';
+                document.getElementById('analysisMeetingId').textContent = currentMeetingId;
+                document.getElementById('analysisFileName').textContent = currentFileName;
+                document.getElementById('analysisStatus').textContent = 'complete';
+            }
+        });
+
+        const uploadArea        = document.getElementById('uploadArea');
+        const fileInput         = document.getElementById('fileInput');
+        const fileInfo          = document.getElementById('fileInfo');
+        const progressContainer = document.getElementById('progressContainer');
+        const result            = document.getElementById('result');
+        const analysisInfo      = document.getElementById('analysisInfo');
+
+        const featureTranscript = document.getElementById('featureTranscript');
+        const featureSpeakers   = document.getElementById('featureSpeakers');
+        const featureActions    = document.getElementById('featureActions');
+        const featureSummary    = document.getElementById('featureSummary');
+
+        const analysisModal     = document.getElementById("analysisModal");
+        const closeAnalysisModal= document.getElementById("closeAnalysisModal");
+        const modalTitle        = document.getElementById("modalTitle");
+        const copyButton        = document.getElementById('copyModalContent');
+        const modalBody         = document.getElementById('modalBody');
+
+        // Drag-drop setup
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+        });
+
+        uploadArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            handleFileSelect();
+        }
+
+        fileInput.addEventListener('change', handleFileSelect);
+
+        function handleFileSelect() {
+            selectedFile = fileInput.files[0];
+            if (!selectedFile) return;
+
+            document.getElementById('fileName').textContent = selectedFile.name;
+            document.getElementById('fileSize').textContent = formatBytes(selectedFile.size);
+            document.getElementById('fileType').textContent = selectedFile.type || 'Unknown';
+
+            uploadArea.classList.add('has-file');
+            document.getElementById('uploadTitle').textContent = '✅ File Ready';
+            fileInfo.classList.add('show');
+            result.style.display = 'none';
+            analysisInfo.style.display = 'none';
+
+            const rect = fileInfo.getBoundingClientRect();
+            const offset = window.pageYOffset + rect.top - 80;
+            window.scrollTo({
+                top: offset,
+                behavior: 'smooth'
+            });
+        }
+
+        function resetUpload() {
+            selectedFile     = null;
+            currentMeetingId = null;
+            currentFileName  = null;
+            
+            // Clear browser storage
+            localStorage.removeItem('meetingId');
+            localStorage.removeItem('fileName');
+
+            fileInput.value = '';
+            uploadArea.classList.remove('has-file');
+            document.getElementById('uploadTitle').textContent = 'Drop your meeting file here or click to browse';
+            fileInfo.classList.remove('show');
+            progressContainer.classList.remove('show');
+            result.style.display = 'none';
+            analysisInfo.style.display = 'none';
+            analysisModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        async function analyzeFile() {
+            if (!selectedFile) {
+                alert('Please select a file first!');
+                return;
+            }
+
+            fileInfo.classList.remove('show');
+            progressContainer.classList.add('show');
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            updateProgress(10, 'Uploading file to server...');
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                updateProgress(30, 'File uploaded! Loading Whisper AI model...');
+                await sleep(2000);
+
+                updateProgress(50, 'Transcribing audio with Whisper...');
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                updateProgress(80, 'Processing transcript segments...');
+                await sleep(1000);
+
+                updateProgress(100, 'Complete!');
+                await sleep(500);
+
+                await showSuccess(data);
+
+            } catch (error) {
+                showError('Upload failed: ' + error.message);
+            }
+        }
+
+        function updateProgress(percent, message) {
+            const fill   = document.getElementById('progressFill');
+            const status = document.getElementById('statusMessage');
+
+            fill.style.width = percent + '%';
+            fill.textContent = percent + '%';
+            status.innerHTML = '<strong>' + message + '</strong>';
+        }
+
+        async function showSuccess(data) {
+            progressContainer.classList.remove('show');
+            result.style.display = 'none';
+
+            currentMeetingId = data.meeting_id;
+            currentFileName  = data.filename;
+            
+            // Save to browser storage
+            localStorage.setItem('meetingId', currentMeetingId);
+            localStorage.setItem('fileName', currentFileName);
+
+            document.getElementById('analysisMeetingId').textContent = currentMeetingId;
+            document.getElementById('analysisFileName').textContent  = currentFileName;
+            document.getElementById('analysisStatus').textContent    = data.status;
+
+            analysisInfo.style.display = 'block';
+
+            await loadTranscriptIntoModal();
+
+            const rect = analysisInfo.getBoundingClientRect();
+            const offset = window.pageYOffset + rect.top - 80;
+            window.scrollTo({
+                top: offset,
+                behavior: 'smooth'
+            });
+        }
+
+        function showError(message) {
+            progressContainer.classList.remove('show');
+
+            result.className = 'error';
+            result.style.display = 'block';
+            result.innerHTML = `
+                <h3>❌ Error</h3>
+                <p>${message}</p>
+                <br>
+                <button class="btn" onclick="resetUpload()">Try Again</button>
+            `;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Modal open/close
+        function openAnalysisModal() {
+            analysisModal.style.display = "block";
+            document.body.style.overflow = "hidden";
+        }
+
+        function closeAnalysis() {
+            analysisModal.style.display = "none";
+            document.body.style.overflow = "auto";
+        }
+
+        closeAnalysisModal.addEventListener("click", closeAnalysis);
+        window.addEventListener("click", (e) => {
+            if (e.target === analysisModal) {
+                closeAnalysis();
+            }
+        });
+
+        // Show one section in modal
+        function showSection(which) {
+            const secFull     = document.getElementById('sectionFull');
+            const secActions  = document.getElementById('sectionActions');
+            const secSummary  = document.getElementById('sectionSummary');
+            const secSpeakers = document.getElementById('sectionSpeakers');
+            
+            const fullTranscript = document.getElementById('fullTranscript');
+            const actionsContent = document.getElementById('actionsContent');
+            const summaryContent = document.getElementById('summaryContent');
+            const speakersContent = document.getElementById('speakersContent');
+
+            secFull.style.display     = 'none';
+            secActions.style.display  = 'none';
+            secSummary.style.display  = 'none';
+            secSpeakers.style.display = 'none';
+            
+            // Clear all content first
+            fullTranscript.textContent = '';
+            actionsContent.innerHTML = '';
+            summaryContent.innerHTML = '';
+            speakersContent.innerHTML = '';
+
+            if (which === 'full')     secFull.style.display     = 'block';
+            if (which === 'actions')  secActions.style.display  = 'block';
+            if (which === 'summary')  secSummary.style.display  = 'block';
+            if (which === 'speakers') secSpeakers.style.display = 'block';
+
+            // Scroll to top of modal
+            modalBody.scrollTop = 0;
+        }
+
+        // Loaders into modal
+        async function loadTranscriptIntoModal() {
+            const pre = document.getElementById('fullTranscript');
+            pre.textContent = 'Loading transcript...';
+
+            if (!currentMeetingId) {
+                pre.textContent = 'No meeting loaded yet.';
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/meeting/${currentMeetingId}`);
+                if (!resp.ok) {
+                    const data = await resp.json();
+                    pre.textContent = data.detail || 'Failed to load transcript.';
+                    return;
+                }
+                const data = await resp.json();
+                pre.textContent = data.full_transcript || 'No transcript available.';
+            } catch (err) {
+                console.error(err);
+                pre.textContent = 'Error loading transcript.';
+            }
+        }
+
+        async function loadActionItemsIntoModal() {
+            const div = document.getElementById('actionsContent');
+            div.innerHTML = '<p>Loading action items...</p>';
+
+            if (!currentMeetingId) {
+                div.innerHTML = '<p>No meeting loaded yet.</p>';
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/meeting/${currentMeetingId}/action-items`);
+                if (!resp.ok) {
+                    const data = await resp.json();
+                    div.innerHTML = `<p>${data.detail || 'Failed to load action items.'}</p>`;
+                    return;
+                }
+                const data = await resp.json();
+
+                if (!data.items || data.items.length === 0) {
+                    div.innerHTML = '<p>No task assigned.</p>';
+                    return;
+                }
+
+                div.innerHTML = '';
+                const ul = document.createElement('ul');
+                for (const item of data.items) {
+                    const li = document.createElement('li');
+                    li.textContent = `${item.owner ? item.owner + ': ' : ''}${item.task}`;
+                    ul.appendChild(li);
+                }
+                div.appendChild(ul);
+            } catch (err) {
+                console.error(err);
+                div.innerHTML = '<p>Error loading action items.</p>';
+            }
+        }
+
+        async function loadSummaryIntoModal() {
+            const div = document.getElementById('summaryContent');
+            div.innerHTML = '<p>Generating summary...</p>';
+
+            if (!currentMeetingId) {
+                div.innerHTML = '<p>No meeting loaded yet.</p>';
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/meeting/${currentMeetingId}/summary`);
+                if (!resp.ok) {
+                    const data = await resp.json();
+                    div.innerHTML = `<p>${data.detail || 'Failed to generate summary.'}</p>`;
+                    return;
+                }
+                const data = await resp.json();
+                div.innerHTML = `<p>${data.summary || 'No summary available.'}</p>`;
+            } catch (err) {
+                console.error(err);
+                div.innerHTML = '<p>Error generating summary.</p>';
+            }
+        }
+
+        // Feature tiles control modal
+        function ensureMeetingLoaded() {
+            if (!currentMeetingId) {
+                alert('Please upload and analyze a meeting first.');
+                return false;
+            }
+            return true;
+        }
+
+        featureTranscript.addEventListener('click', async () => {
+            if (!ensureMeetingLoaded()) return;
+            modalTitle.textContent = 'Full Transcript';
+            showSection('full');
+            await loadTranscriptIntoModal();
+            if (analysisModal.style.display !== 'block') {
+                openAnalysisModal();
+            }
+        });
+
+        featureSpeakers.addEventListener('click', () => {
+            if (!ensureMeetingLoaded()) return;
+            modalTitle.textContent = 'Speaker Detection';
+            showSection('speakers');
+            const div = document.getElementById('speakersContent');
+            div.textContent = 'Speaker detection is not implemented yet.';
+            if (analysisModal.style.display !== 'block') {
+                openAnalysisModal();
+            }
+        });
+
+        featureActions.addEventListener('click', async () => {
+            if (!ensureMeetingLoaded()) return;
+            modalTitle.textContent = 'Action Items';
+            showSection('actions');
+            await loadActionItemsIntoModal();
+            if (analysisModal.style.display !== 'block') {
+                openAnalysisModal();
+            }
+        });
+
+        featureSummary.addEventListener('click', async () => {
+            if (!ensureMeetingLoaded()) return;
+            modalTitle.textContent = 'Smart Summary';
+            showSection('summary');
+            await loadSummaryIntoModal();
+            if (analysisModal.style.display !== 'block') {
+                openAnalysisModal();
+            }
+        });
+
+        // Copy only modal body content
+        copyButton.addEventListener('click', async () => {
+            if (!modalBody) {
+                alert('Nothing to copy.');
+                return;
+            }
+
+            const textToCopy = modalBody.innerText || modalBody.textContent || '';
+
+            if (!textToCopy.trim()) {
+                alert('Nothing to copy.');
+                return;
+            }
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(textToCopy);
+                } else {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = textToCopy;
+                    textArea.style.position = 'fixed';
+                    textArea.style.opacity = '0';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                }
+
+                copyButton.style.opacity = '0.5';
+                setTimeout(() => {
+                    copyButton.style.opacity = '1';
+                }, 300);
+            } catch (err) {
+                console.error(err);
+                alert('Unable to copy text.');
+            }
+        });
+    </script>
+</body>
+</html>
