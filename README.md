@@ -120,7 +120,7 @@ You should see the upload page.
   "language": "en",
   "duration": 31,
   "type": "generic",
-  "summary": "In this deeply emotional and impassioned piece, the speaker expresses unwavering devotion and longing. The lyrics focus on fear, bravery, and love that feels timeless, creating a hopeful and romantic tone.",
+  "summary": "In this deeply emotional and impassioned piece, the speaker expresses an unwavering... like \"heart beats fast\" and ...ht this heart closer every day without ... and resolute resolve—\"I have died ... I will be brave,\" they... affection, ... life's uncertainties with the phrase \"But watching you stand alone.\" Ultimately, it is this speaker ...love itself.",
   "action_items": []
 }
 ```
